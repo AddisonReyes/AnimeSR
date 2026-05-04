@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
@@ -8,11 +7,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.schemas import AnimeDetail, GenreOption, HealthResponse, RecommendationResponse, SearchResponse
 from app.services.catalog import AnimeCatalog
-
-
-def _cors_origins() -> list[str]:
-    configured = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
-    return [origin.strip() for origin in configured.split(",") if origin.strip()]
 
 
 @asynccontextmanager
@@ -30,8 +24,8 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_cors_origins(),
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
