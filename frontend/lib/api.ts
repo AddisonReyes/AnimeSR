@@ -1,4 +1,4 @@
-import type { AnimeDetail, GenreOption, RecommendationResponse, SearchResponse } from "@/lib/types";
+import type { AnimeDetail, GenreOption, HealthResponse, RecommendationResponse, SearchResponse } from "@/lib/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
 
@@ -17,6 +17,10 @@ async function fetchJson<T>(path: string): Promise<T> {
 
 export async function getFeaturedGenres(limit = 18) {
   return fetchJson<GenreOption[]>(`/api/genres?limit=${limit}`);
+}
+
+export async function getHealth() {
+  return fetchJson<HealthResponse>("/api/health");
 }
 
 export async function searchAnime(query: string, limit = 6) {

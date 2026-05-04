@@ -1,21 +1,23 @@
 import type { Metadata } from "next";
-import { Space_Grotesk, Sora } from "next/font/google";
+import { Manrope, Newsreader } from "next/font/google";
 
 import "./globals.css";
 
-const displayFont = Sora({
+const displayFont = Newsreader({
+  adjustFontFallback: false,
   subsets: ["latin"],
   variable: "--font-display",
+  weight: ["400", "500", "600"],
 });
 
-const bodyFont = Space_Grotesk({
+const bodyFont = Manrope({
   subsets: ["latin"],
   variable: "--font-body",
 });
 
 export const metadata: Metadata = {
-  title: "Anime Atlas",
-  description: "Explora recomendaciones de anime a partir de un titulo o genero.",
+  title: "AnimeSR",
+  description: "Discover anime recommendations by title or genre.",
 };
 
 export default function RootLayout({
@@ -24,7 +26,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es">
+    <html lang="en">
       <body className={`${displayFont.variable} ${bodyFont.variable}`}>{children}</body>
     </html>
   );

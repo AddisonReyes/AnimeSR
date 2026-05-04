@@ -25,7 +25,7 @@ app = FastAPI(
     title="Anime Recommendation API",
     version="1.0.0",
     lifespan=lifespan,
-    summary="API de recomendaciones de anime basada en contenido y metadatos.",
+    summary="Content-based anime recommendation API.",
 )
 
 app.add_middleware(

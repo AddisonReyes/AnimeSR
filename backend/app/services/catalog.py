@@ -346,7 +346,7 @@ class AnimeCatalog:
     def _find_by_title(self, title: str) -> AnimeRecord:
         matches = self.search(title, limit=1)
         if not matches:
-            raise LookupError(f'No encontre un anime que coincida con "{title}".')
+            raise LookupError(f'No anime matched "{title}".')
         return self.records_by_id[matches[0].anime_id]
 
     def _summary(self, record: AnimeRecord) -> AnimeSummary:
@@ -467,7 +467,7 @@ class AnimeCatalog:
     def get_anime_detail(self, anime_id: int) -> AnimeDetail:
         record = self.records_by_id.get(anime_id)
         if record is None or record.is_adult:
-            raise LookupError(f"No encontre un anime seguro con id {anime_id}.")
+            raise LookupError(f"No safe anime found with id {anime_id}.")
         return self._detail(record)
 
     def get_featured_genres(self, limit: int = 18) -> list[GenreOption]:
@@ -476,7 +476,7 @@ class AnimeCatalog:
     def get_highlights(self, limit: int = 12) -> RecommendationResponse:
         return RecommendationResponse(
             source_type="highlights",
-            source_label="Selecciones destacadas para descubrir el catalogo",
+            source_label="Editor's picks from across the catalog",
             results=[self._summary(record) for record in self.highlights[:limit]],
         )
 
@@ -508,7 +508,7 @@ class AnimeCatalog:
         anchor = self._find_by_title(title)
         return RecommendationResponse(
             source_type="title",
-            source_label=f"Recomendaciones inspiradas por {anchor.title}",
+            source_label=f"Similar to {anchor.title}",
             anchor=self._summary(anchor),
             results=self._recommend_for_record(anchor, limit),
         )
@@ -516,7 +516,7 @@ class AnimeCatalog:
     def recommend_by_genre(self, genre: str, limit: int = 12) -> RecommendationResponse:
         canonical_genre = self._resolve_genre(genre)
         if canonical_genre is None:
-            raise LookupError(f'No encontre el genero "{genre}" en el dataset.')
+            raise LookupError(f'No genre named "{genre}" was found in the dataset.')
 
         cached_ids = self.genre_cache.get(canonical_genre)
         if cached_ids is None:
@@ -537,6 +537,6 @@ class AnimeCatalog:
 
         return RecommendationResponse(
             source_type="genre",
-            source_label=f"Lo mejor de {DISPLAY_ALIASES.get(canonical_genre, canonical_genre)}",
+            source_label=f"Best of {DISPLAY_ALIASES.get(canonical_genre, canonical_genre)}",
             results=[self._summary(self.records_by_id[anime_id]) for anime_id in cached_ids[:limit]],
         )

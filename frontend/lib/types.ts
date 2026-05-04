@@ -46,3 +46,9 @@ export type SearchResponse = {
   query: string;
   results: AnimeSummary[];
 };
+
+export type HealthResponse = {
+  status: string;
+  total_anime: number;
+  total_safe_anime: number;
+};
