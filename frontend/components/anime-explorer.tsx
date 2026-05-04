@@ -5,6 +5,7 @@ import { startTransition, useDeferredValue, useEffect, useRef, useState } from "
 import { AnimeCard } from "@/components/anime-card";
 import { AnimeModal } from "@/components/anime-modal";
 import {
+  API_BASE_URL,
   getAnimeDetail,
   getFeaturedGenres,
   getHighlights,
@@ -289,6 +290,7 @@ export function AnimeExplorer() {
   const shouldShowSuggestions = isInputFocused && query.trim().length > 0 && suggestions.length > 0;
   const shouldShowSkeletons = loading && !recommendations && !error;
   const currentYear = new Date().getFullYear();
+  const apiDocsUrl = `${API_BASE_URL.replace(/\/$/, "")}/docs`;
 
   function getRecommendationReason(anime: AnimeSummary) {
     if (recommendations?.source_type === "title" && recommendations.anchor) {
@@ -465,16 +467,27 @@ export function AnimeExplorer() {
       </section>
 
       <footer className="site-footer">
-        <div>
+        <div className="site-footer__meta">
           <p className="site-footer__brand">AnimeSR</p>
           <p className="site-footer__copy">© {currentYear} AnimeSR. All rights reserved.</p>
         </div>
-        <p className="site-footer__credit">
-          Made by{" "}
-          <a href="https://addisonreyes.com" rel="noreferrer" target="_blank">
-            Addison Reyes
-          </a>
-        </p>
+        <div className="site-footer__aside">
+          <p className="site-footer__backend-line">
+            <a href={apiDocsUrl} rel="noreferrer" target="_blank">
+              API
+            </a>{" "}
+            /{" "}
+            <a href="https://github.com/AddisonReyes/Anime-System-Recomendations" rel="noreferrer" target="_blank">
+              Code
+            </a>
+          </p>
+          <p className="site-footer__credit">
+            Made by{" "}
+            <a href="https://addisonreyes.com" rel="noreferrer" target="_blank">
+              Addison Reyes
+            </a>
+          </p>
+        </div>
       </footer>
 
       <AnimeModal
