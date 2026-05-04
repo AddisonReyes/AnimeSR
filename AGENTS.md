@@ -1,17 +1,17 @@
 # AGENTS
 
-## Objetivo del repositorio
+## Repository Goal
 
-Proyecto full stack para recomendaciones de anime basado en contenido. El backend expone una API en `FastAPI` y el frontend la consume desde `Next.js`.
+This is a full-stack anime recommendation project built around a content-based recommendation engine. The backend exposes a public API through `FastAPI`, and the frontend consumes it through `Next.js`.
 
-## Mapa rapido
+## Quick Map
 
-- `README.md`: vision general y arranque local o con Docker.
-- `backend/`: API, modelos Pydantic y logica de recomendacion.
-- `frontend/`: interfaz, componentes, hooks y capa de acceso a la API.
-- `deprecated/`: material historico. `deprecated/anime.csv` sigue siendo dependencia activa del backend.
+- `README.md`: high-level project overview and local/Docker setup.
+- `backend/`: API, schemas, OpenAPI docs, and recommendation engine logic.
+- `frontend/`: UI, hooks, components, and API client helpers.
+- `deprecated/`: historical material. `deprecated/anime.csv` is still an active backend dependency.
 
-## Comandos utiles
+## Useful Commands
 
 Backend:
 
@@ -39,51 +39,53 @@ docker-compose up --build
 docker-compose down
 ```
 
-Validacion rapida:
+Quick validation:
 
 ```bash
 python3 -m py_compile backend/app/main.py backend/app/schemas.py backend/app/services/catalog.py backend/app/services/catalog_support.py
 cd frontend && npm run lint
 ```
 
-## Notas importantes del backend
+## Important Backend Notes
 
-- `backend/app/services/catalog.py` resuelve rutas a partir de la raiz del repo.
-- `backend/app/services/catalog_support.py` concentra parsing, normalizacion y mapeo de records.
-- El backend necesita:
+- `backend/app/services/catalog.py` resolves dataset paths from the repository root.
+- `backend/app/services/catalog_support.py` owns parsing, normalization, and record mapping.
+- The backend needs both:
   - `backend/anime-dataset-2023.csv`
   - `deprecated/anime.csv`
-- No elimines ni muevas `deprecated/anime.csv` sin ajustar esas rutas.
-- La API excluye contenido adulto usando tags y ratings.
-- Las recomendaciones por titulo y genero tienen cache en memoria.
-- El CORS esta abierto para cualquier origen.
+- Do not remove or move `deprecated/anime.csv` without updating the backend path logic.
+- Public responses exclude adult content based on tags and rating labels.
+- Title-based and genre-based recommendations are cached in memory.
+- CORS is intentionally open for public API consumption.
+- Railway/Docker production startup lives in [backend/start.sh](/home/dakotitah/github/Anime-System-Recomendations/backend/start.sh).
 
-## Notas importantes del frontend
+## Important Frontend Notes
 
-- `frontend/components/anime-explorer.tsx` es un componente cliente.
-- `frontend/hooks/use-anime-explorer.ts` concentra la logica del explorador principal.
-- Para desarrollo local, las variables de entorno viven en `frontend/.env`.
-- `NEXT_PUBLIC_API_BASE_URL` debe ser accesible desde el navegador, no solo desde la red interna de Docker.
-- Si se cambia `NEXT_PUBLIC_API_BASE_URL` en una imagen ya construida del frontend, hay que reconstruirla porque es una variable publica de Next.js.
-- `frontend/next.config.mjs` usa `output: "standalone"` para la imagen Docker.
+- `frontend/components/anime-explorer.tsx` is the main client-side container.
+- `frontend/hooks/use-anime-explorer.ts` owns the main page interaction logic.
+- `NEXT_PUBLIC_API_BASE_URL` must be reachable from the browser, not just from internal Docker or private service networking.
+- If `NEXT_PUBLIC_API_BASE_URL` changes for a built frontend image, the image should be rebuilt.
+- `frontend/next.config.mjs` uses `output: "standalone"` for container-friendly builds.
+- Local frontend environment variables live in `frontend/.env`.
 
-## Reglas para cambios futuros
+## Rules for Future Changes
 
-- Si cambias endpoints, variables de entorno o comandos de arranque, actualiza:
+- If you change routes, environment variables, startup commands, or deployment behavior, update:
   - `README.md`
   - `backend/README.md`
   - `frontend/README.md`
-- Si cambias la estructura de carpetas, revisa tambien:
+- If you change folder structure, double-check:
   - `backend/app/services/catalog.py`
-  - `docker-compose.yml`
+  - `backend/start.sh`
   - `backend/Dockerfile`
-- No mezcles artefactos locales en commits:
+  - `docker-compose.yml`
+- Do not commit local artifacts such as:
   - `.venv/`
   - `.next/`
   - `node_modules/`
   - `frontend/.env`
 
-## Estado actual
+## Current State
 
-- No hay suite automatizada de tests en el repo.
-- La validacion minima recomendada es compilacion Python, `npm run lint` y una prueba manual del flujo de busqueda y recomendaciones.
+- There is no automated test suite yet.
+- The minimum recommended validation flow is Python compilation, frontend linting, frontend production build, and a manual check of search, recommendations, and the detail modal.

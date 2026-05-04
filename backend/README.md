@@ -1,6 +1,6 @@
 # Backend
 
-API REST en `FastAPI` para cargar el catalogo de anime, filtrar contenido no deseado y servir recomendaciones en tiempo real.
+The backend is a `FastAPI` service that loads the anime catalog, filters unsafe content, and serves search and recommendation responses in real time.
 
 ## Stack
 
@@ -9,54 +9,65 @@ API REST en `FastAPI` para cargar el catalogo de anime, filtrar contenido no des
 - `scikit-learn`
 - `uvicorn`
 
-## Fuentes de datos
+## Data Sources
 
 - `backend/anime-dataset-2023.csv`
-  - Dataset principal con metadatos, score, sinopsis, estudio y assets.
+  - Primary dataset with titles, scores, synopses, studios, and image assets.
 - `deprecated/anime.csv`
-  - Dataset legacy usado para recuperar tags adicionales.
+  - Legacy dataset still used to recover additional editorial tags.
 
-El servicio depende de ambos archivos. Si cambia su ubicacion, tambien hay que ajustar la resolucion de rutas en [backend/app/services/catalog.py](/home/dakotitah/github/Anime-System-Recomendations/backend/app/services/catalog.py).
+The service depends on both files. If their locations change, update the path resolution logic in [backend/app/services/catalog.py](/home/dakotitah/github/Anime-System-Recomendations/backend/app/services/catalog.py).
 
-## Flujo del catalogo
+## Catalog Flow
 
-1. `AnimeCatalog` se inicializa una sola vez durante el `lifespan` de FastAPI.
-2. Se limpian campos, se normalizan listas y se detecta contenido adulto.
-3. Se construyen:
-   - un lookup por titulo
-   - un lookup por genero
-   - una matriz TF-IDF para similitud
-4. Se cachean recomendaciones por anime y por genero para evitar recalculo innecesario.
+1. `AnimeCatalog` is initialized once during the FastAPI lifespan.
+2. Raw data is cleaned, normalized, and filtered for adult content.
+3. The service builds:
+   - a title lookup
+   - a genre lookup
+   - a TF-IDF matrix for content similarity
+4. Recommendation results are cached by title anchor and by genre for better performance.
 
-## Variables de entorno
+## Internal Structure
 
-- No hay variables obligatorias para levantar la API en su estado actual.
-- El CORS esta abierto para cualquier origen para que la API sea consumible desde cualquier frontend.
+- [backend/app/main.py](/home/dakotitah/github/Anime-System-Recomendations/backend/app/main.py)
+  - FastAPI app setup, routing, OpenAPI metadata, and HTTP error handling.
+- [backend/app/schemas.py](/home/dakotitah/github/Anime-System-Recomendations/backend/app/schemas.py)
+  - Pydantic response models and OpenAPI examples.
+- [backend/app/services/catalog.py](/home/dakotitah/github/Anime-System-Recomendations/backend/app/services/catalog.py)
+  - Search, ranking, recommendation, caching, and catalog indexing logic.
+- [backend/app/services/catalog_support.py](/home/dakotitah/github/Anime-System-Recomendations/backend/app/services/catalog_support.py)
+  - Parsing, normalization, and record-to-schema conversion helpers.
+
+## Environment
+
+- No required runtime environment variables are needed for the API in its current form.
+- CORS is intentionally open so the API can be consumed publicly from any frontend.
 
 ## Endpoints
 
 - `GET /`
-  - Respuesta basica para comprobar que la API esta arriba.
+  - Simple entrypoint response to confirm the API is online.
 - `GET /docs`
-  - Swagger UI interactivo generado desde OpenAPI.
+  - Interactive Swagger UI generated from the OpenAPI schema.
 - `GET /redoc`
-  - Documentacion alternativa en formato ReDoc.
+  - Alternative API reference view powered by ReDoc.
 - `GET /api/health`
-  - Devuelve `status`, `total_anime` y `total_safe_anime`.
+  - Returns `status`, `total_anime`, and `total_safe_anime`.
 - `GET /api/genres?limit=18`
-  - Lista de generos destacados.
+  - Returns featured genres for browsing.
 - `GET /api/anime/search?q=naruto&limit=8`
-  - Busqueda por nombre con coincidencias aproximadas.
+  - Performs exact, partial, and fuzzy title matching.
 - `GET /api/anime/{anime_id}`
-  - Detalle completo de un anime seguro para mostrar en la UI.
+  - Returns the full safe-public detail payload for one anime.
 - `GET /api/recommendations/highlights?limit=12`
-  - Destacados generales del catalogo.
+  - Returns curated highlight recommendations from the catalog.
 - `GET /api/recommendations/by-title?title=Naruto&limit=12`
-  - Recomendaciones similares a un titulo.
+  - Returns content-based recommendations anchored to a title.
 - `GET /api/recommendations/by-genre?genre=Shounen&limit=12`
-  - Recomendaciones por genero o etiqueta.
+  - Returns recommendations from a genre or editorial tag.
 
-## Ejecutar en local
+## Run Locally
 
 ```bash
 python3 -m venv .venv
@@ -65,34 +76,34 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 --app-dir .
 ```
 
-Healthcheck:
+Health check:
 
 ```bash
 curl http://127.0.0.1:8000/api/health
 ```
 
-## Ejecutar con Docker
+## Run with Docker
 
-Desde la raiz del repositorio:
+From the repository root:
 
 ```bash
 docker-compose up --build backend
 ```
 
-La imagen del backend se construye desde la raiz del repo porque necesita copiar tanto `backend/` como `deprecated/`.
+The backend image is built from the repository root because it needs access to both `backend/` and `deprecated/`.
 
 ## Railway
 
-El `Dockerfile` del backend ya esta preparado para Railway:
+The backend `Dockerfile` is now production-ready for Railway:
 
-- Usa `PORT` automaticamente con fallback a `8000`.
-- Arranca con un script que hace `exec uvicorn ...` para manejar bien señales de apagado.
-- Corre como usuario no root dentro del contenedor.
+- It reads `PORT` automatically with a fallback to `8000`.
+- It starts through [backend/start.sh](/home/dakotitah/github/Anime-System-Recomendations/backend/start.sh), which uses `exec uvicorn ...` for cleaner signal handling.
+- It runs as a non-root user inside the container.
 
-Importante para este monorepo:
+Important for this monorepo:
 
-- El build context debe incluir la raiz del repositorio, porque la imagen copia:
+- The Docker build context must include the repository root, because the image copies:
   - `backend/`
   - `deprecated/`
-- Si Railway usa el repo completo, define la variable `RAILWAY_DOCKERFILE_PATH=backend/Dockerfile`.
-- Si intentas construir solo desde la carpeta `backend/`, el build fallara porque `deprecated/anime.csv` queda fuera del contexto.
+- If Railway is building from the full repository, set `RAILWAY_DOCKERFILE_PATH=backend/Dockerfile`.
+- If you try to build from the `backend/` folder alone, the build will fail because `deprecated/anime.csv` will be outside the Docker build context.

@@ -1,24 +1,24 @@
 # Anime System Recommendations
 
-Aplicacion full stack para descubrir recomendaciones de anime usando similitud por contenido. El proyecto conserva el notebook original para referencia historica y expone una experiencia web dividida en `FastAPI` para la API y `Next.js` para la interfaz.
+Anime System Recommendations is a full-stack anime discovery app built around content-based recommendations. The repository keeps the original notebook-based work for historical reference, while the current product is split into a `FastAPI` backend and a `Next.js` frontend.
 
-## Resumen rapido
+## Overview
 
-- `backend/`: API REST con el motor de recomendacion.
-- `frontend/`: interfaz web para buscar animes, explorar generos y abrir detalles.
-- `deprecated/`: notebook y datasets del proyecto original. Aunque esta carpeta sea legacy, el backend sigue usando `deprecated/anime.csv` para enriquecer etiquetas, asi que no debe eliminarse sin ajustar el codigo.
-- `docker-compose.yml`: arranque de la pila completa con Docker.
+- `backend/`: REST API and recommendation engine.
+- `frontend/`: web interface for search, browsing, and detail views.
+- `deprecated/`: original notebook and legacy datasets. Even though this folder is legacy, the backend still uses `deprecated/anime.csv` to enrich tags, so it must not be removed without updating the code.
+- `docker-compose.yml`: local orchestration for the full stack.
 
-## Como funciona
+## How It Works
 
-1. El backend carga `backend/anime-dataset-2023.csv` como dataset principal.
-2. Enriquece tags con `deprecated/anime.csv` para recuperar etiquetas historicas como `Shounen`, `Shoujo` o `Seinen`.
-3. Filtra contenido adulto usando etiquetas y rating.
-4. Genera un indice TF-IDF a partir de titulo, sinopsis, estudio, fuente y tags.
-5. Expone endpoints para destacados, busqueda por titulo, detalle y recomendaciones por anime o genero.
-6. El frontend consume la API desde el navegador y presenta la experiencia con tarjetas, sugerencias y modal de detalle.
+1. The backend loads `backend/anime-dataset-2023.csv` as the primary dataset.
+2. It enriches the catalog with tag data from `deprecated/anime.csv`.
+3. Adult titles are filtered out before public responses are returned.
+4. A TF-IDF feature matrix is built from title, synopsis, tags, studios, and source material.
+5. The API exposes search, detail, genre browsing, highlights, and recommendation endpoints.
+6. The frontend consumes the API in the browser and renders the experience with search suggestions, cards, a detail modal, and a styled footer.
 
-## Estructura del repositorio
+## Repository Structure
 
 ```text
 .
@@ -34,16 +34,17 @@ Aplicacion full stack para descubrir recomendaciones de anime usando similitud p
 │   │   └── services
 │   │       ├── catalog.py
 │   │       └── catalog_support.py
-│   └── requirements.txt
+│   ├── requirements.txt
+│   └── start.sh
 ├── deprecated
 │   ├── anime.csv
 │   └── main.ipynb
 ├── docker-compose.yml
 └── frontend
     ├── .dockerignore
+    ├── .env.example
     ├── Dockerfile
     ├── README.md
-    ├── .env.example
     ├── app
     ├── components
     ├── hooks
@@ -51,23 +52,23 @@ Aplicacion full stack para descubrir recomendaciones de anime usando similitud p
     └── package.json
 ```
 
-## Requisitos locales
+## Local Requirements
 
-- Python 3.10 o superior
-- Node.js 20 o superior recomendado
+- Python 3.10+
+- Node.js 20+ recommended
 - npm
 
-## Variables de entorno
+## Environment Variables
 
 Frontend:
 
 - `NEXT_PUBLIC_API_BASE_URL`
-  - URL base de la API consumida desde el navegador.
-  - Valor por defecto: `http://127.0.0.1:8000`
-  - Importante: al ser una variable publica de Next.js, debe apuntar a una URL accesible desde el navegador del usuario, no a un hostname interno como `backend`.
-  - Archivo de ejemplo: `frontend/.env.example`
+  - Base URL used by the browser to reach the backend API.
+  - Default: `http://127.0.0.1:8000`
+  - Because this is a public Next.js variable, it must point to a URL reachable from the browser. Do not point it to an internal hostname such as `backend`.
+  - Example file: `frontend/.env.example`
 
-## Ejecutar en local
+## Run Locally
 
 Backend:
 
@@ -88,45 +89,48 @@ npm install
 npm run dev
 ```
 
-Aplicacion:
+App URLs:
 
 - Frontend: `http://localhost:3000`
 - Backend: `http://localhost:8000`
-- Healthcheck: `http://localhost:8000/api/health`
+- Health check: `http://localhost:8000/api/health`
+- Swagger UI: `http://localhost:8000/docs`
 
-## Ejecutar con Docker
+## Run with Docker
 
-El repositorio incluye `Dockerfile` para backend y frontend, y un `docker-compose.yml` para levantar toda la pila.
+The repository includes a Docker setup for both services and a root `docker-compose.yml` file for the full stack.
 
 ```bash
 docker-compose up --build
 ```
 
-Servicios expuestos:
+Exposed services:
 
 - Frontend: `http://localhost:3000`
 - Backend: `http://localhost:8000`
 
-Variables configurables desde Compose:
+Configurable Compose variable:
 
 - `NEXT_PUBLIC_API_BASE_URL`
-  - Por defecto apunta a `http://localhost:8000`
-  - Si la API va a vivir en otra URL, hay que actualizar el valor en Compose y reconstruir la imagen del frontend.
+  - Default: `http://localhost:8000`
+  - If the API lives at another URL, update the variable and rebuild the frontend image.
 
-Para detener la pila:
+Stop the stack:
 
 ```bash
 docker-compose down
 ```
 
-Notas sobre archivos `.env`:
+Notes about `.env` files:
 
-- No hay archivos `.env` ni `.env.example` en la raiz del repo.
-- Frontend: `Next.js` lee `frontend/.env` automaticamente en desarrollo.
+- There are no root-level `.env` or `.env.example` files in this repository.
+- The frontend reads `frontend/.env` automatically in local development.
 
-## Endpoints principales
+## Main API Endpoints
 
 - `GET /`
+- `GET /docs`
+- `GET /redoc`
 - `GET /api/health`
 - `GET /api/genres?limit=18`
 - `GET /api/anime/search?q=naruto&limit=8`
@@ -135,4 +139,4 @@ Notas sobre archivos `.env`:
 - `GET /api/recommendations/by-title?title=Naruto&limit=12`
 - `GET /api/recommendations/by-genre?genre=Shounen&limit=12`
 
-Los detalles del contrato de la API y del frontend estan en [backend/README.md](/home/dakotitah/github/Anime-System-Recomendations/backend/README.md) y [frontend/README.md](/home/dakotitah/github/Anime-System-Recomendations/frontend/README.md).
+More detailed backend and frontend documentation lives in [backend/README.md](/home/dakotitah/github/Anime-System-Recomendations/backend/README.md) and [frontend/README.md](/home/dakotitah/github/Anime-System-Recomendations/frontend/README.md).

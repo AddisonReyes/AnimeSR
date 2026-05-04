@@ -1,31 +1,43 @@
 # Frontend
 
-Aplicacion en `Next.js 14 + TypeScript` para consumir la API del backend y presentar recomendaciones de anime en una UI interactiva.
+The frontend is a `Next.js 14 + TypeScript` application that consumes the backend API and presents anime recommendations in an interactive UI.
 
-## Funcionalidades
+## Features
 
-- Busqueda incremental por titulo.
-- Sugerencias para autocompletar.
-- Recomendaciones similares al primer resultado relevante.
-- Exploracion por genero o tag.
-- Tarjetas con score, episodios y sinopsis breve.
-- Modal con detalle ampliado del anime.
+- Incremental title search
+- Autocomplete suggestions
+- Related recommendations based on the strongest search result
+- Genre and editorial tag browsing
+- Summary cards with score, episode count, and short synopsis
+- Detail modal with deeper metadata
+- Footer links to API docs and source code
 
-## Puntos tecnicos
+## Structure
 
-- La vista principal vive en [frontend/components/anime-explorer.tsx](/home/dakotitah/github/Anime-System-Recomendations/frontend/components/anime-explorer.tsx).
-- Todas las llamadas a la API salen desde [frontend/lib/api.ts](/home/dakotitah/github/Anime-System-Recomendations/frontend/lib/api.ts).
-- El consumo de datos ocurre del lado del cliente, asi que `NEXT_PUBLIC_API_BASE_URL` debe apuntar a una URL alcanzable desde el navegador.
+- [frontend/components/anime-explorer.tsx](/home/dakotitah/github/Anime-System-Recomendations/frontend/components/anime-explorer.tsx)
+  - Main page container that wires the UI together.
+- [frontend/hooks/use-anime-explorer.ts](/home/dakotitah/github/Anime-System-Recomendations/frontend/hooks/use-anime-explorer.ts)
+  - Primary client-side state and interaction logic.
+- [frontend/components/anime-search-panel.tsx](/home/dakotitah/github/Anime-System-Recomendations/frontend/components/anime-search-panel.tsx)
+  - Search box, autocomplete suggestions, genre pills, and featured titles.
+- [frontend/components/anime-results-section.tsx](/home/dakotitah/github/Anime-System-Recomendations/frontend/components/anime-results-section.tsx)
+  - Results header, notices, cards, and empty state.
+- [frontend/components/anime-footer.tsx](/home/dakotitah/github/Anime-System-Recomendations/frontend/components/anime-footer.tsx)
+  - Footer content and external links.
+- [frontend/lib/api.ts](/home/dakotitah/github/Anime-System-Recomendations/frontend/lib/api.ts)
+  - Centralized API access and query-string helpers.
 
-## Variable de entorno
+## Environment Variable
 
 - `NEXT_PUBLIC_API_BASE_URL`
-  - Valor por defecto: `http://127.0.0.1:8000`
-  - Ejemplo para desarrollo local: `http://localhost:8000`
-  - Ejemplo incorrecto para navegador: `http://backend:8000`
-  - Archivo de ejemplo: `frontend/.env.example`
+  - Default: `http://127.0.0.1:8000`
+  - Correct local development example: `http://localhost:8000`
+  - Incorrect browser-facing example: `http://backend:8000`
+  - Example file: `frontend/.env.example`
 
-## Ejecutar en local
+Because this variable is public and evaluated for browser-side requests, it must point to a URL reachable from the user's browser, not just from Docker networking.
+
+## Run Locally
 
 ```bash
 cp .env.example .env
@@ -33,16 +45,16 @@ npm install
 npm run dev
 ```
 
-Aplicacion:
+Application URL:
 
 - `http://localhost:3000`
 
-## Ejecutar con Docker
+## Run with Docker
 
-Desde la raiz del repositorio:
+From the repository root:
 
 ```bash
 docker-compose up --build frontend
 ```
 
-La imagen del frontend usa `Next.js` en modo `standalone` para simplificar el despliegue.
+The frontend image uses Next.js `standalone` output to simplify production container deployment.
