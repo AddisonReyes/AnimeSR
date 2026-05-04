@@ -46,6 +46,16 @@ python3 -m py_compile backend/app/main.py backend/app/schemas.py backend/app/ser
 cd frontend && npm run lint
 ```
 
+Backend test run:
+
+```bash
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+python -m pytest
+```
+
 ## Important Backend Notes
 
 - `backend/app/services/catalog.py` resolves dataset paths from the repository root.
@@ -87,5 +97,6 @@ cd frontend && npm run lint
 
 ## Current State
 
-- There is no automated test suite yet.
-- The minimum recommended validation flow is Python compilation, frontend linting, frontend production build, and a manual check of search, recommendations, and the detail modal.
+- The backend now has an automated test suite in `backend/tests/` that validates the public API contract and recommendation flows.
+- CI lives in `.github/workflows/ci.yml` and validates backend module compilation, backend tests, plus frontend lint/build on pushes and pull requests.
+- The recommended local validation flow is Python compilation, backend tests, frontend lint, frontend production build, and a manual check of search, recommendations, and the detail modal.

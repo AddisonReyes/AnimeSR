@@ -82,6 +82,25 @@ Health check:
 curl http://127.0.0.1:8000/api/health
 ```
 
+## Run Tests
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+python -m pytest
+```
+
+The backend test suite currently validates the main public API contract and recommendation flows:
+
+- root and health endpoints
+- featured genres
+- title search
+- anime detail lookup
+- title-based recommendations
+- genre-based recommendations
+- representative 404 cases
+
 ## Run with Docker
 
 From the repository root:

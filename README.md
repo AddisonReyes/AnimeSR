@@ -126,6 +126,34 @@ Notes about `.env` files:
 - There are no root-level `.env` or `.env.example` files in this repository.
 - The frontend reads `frontend/.env` automatically in local development.
 
+## Testing And CI
+
+Backend tests:
+
+```bash
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+python -m pytest
+```
+
+Frontend checks:
+
+```bash
+cd frontend
+npm clean-install --progress=false
+npm run lint
+npm run build
+```
+
+GitHub Actions:
+
+- The repository now includes [.github/workflows/ci.yml](/home/dakotitah/github/Anime-System-Recomendations/.github/workflows/ci.yml).
+- Every push and pull request runs:
+  - backend module compilation plus backend tests on Python 3.11
+  - frontend dependency install, lint, and production build on Node 22
+
 ## Main API Endpoints
 
 - `GET /`
