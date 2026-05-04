@@ -1,14 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: "standalone",
+  output: "export",
   images: {
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "cdn.myanimelist.net"
-      }
-    ]
-  }
+        hostname: "cdn.myanimelist.net",
+      },
+    ],
+  },
 };
 
 export default nextConfig;
