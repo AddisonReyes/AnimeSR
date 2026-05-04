@@ -36,7 +36,6 @@ genres, and legacy editorial tags. Adult content is filtered before public respo
 
 - No authentication is required.
 - CORS is open for public consumption.
-- Interactive Swagger UI lives at `/docs`.
 """.strip()
 
 OPENAPI_TAGS = [

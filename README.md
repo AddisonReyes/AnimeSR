@@ -32,7 +32,8 @@ Aplicacion full stack para descubrir recomendaciones de anime usando similitud p
 │   │   ├── main.py
 │   │   ├── schemas.py
 │   │   └── services
-│   │       └── catalog.py
+│   │       ├── catalog.py
+│   │       └── catalog_support.py
 │   └── requirements.txt
 ├── deprecated
 │   ├── anime.csv
@@ -45,6 +46,7 @@ Aplicacion full stack para descubrir recomendaciones de anime usando similitud p
     ├── .env.example
     ├── app
     ├── components
+    ├── hooks
     ├── lib
     └── package.json
 ```

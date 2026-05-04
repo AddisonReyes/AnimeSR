@@ -8,7 +8,7 @@ Proyecto full stack para recomendaciones de anime basado en contenido. El backen
 
 - `README.md`: vision general y arranque local o con Docker.
 - `backend/`: API, modelos Pydantic y logica de recomendacion.
-- `frontend/`: interfaz, componentes y capa de acceso a la API.
+- `frontend/`: interfaz, componentes, hooks y capa de acceso a la API.
 - `deprecated/`: material historico. `deprecated/anime.csv` sigue siendo dependencia activa del backend.
 
 ## Comandos utiles
@@ -42,13 +42,14 @@ docker-compose down
 Validacion rapida:
 
 ```bash
-python3 -m py_compile backend/app/main.py backend/app/schemas.py backend/app/services/catalog.py
+python3 -m py_compile backend/app/main.py backend/app/schemas.py backend/app/services/catalog.py backend/app/services/catalog_support.py
 cd frontend && npm run lint
 ```
 
 ## Notas importantes del backend
 
 - `backend/app/services/catalog.py` resuelve rutas a partir de la raiz del repo.
+- `backend/app/services/catalog_support.py` concentra parsing, normalizacion y mapeo de records.
 - El backend necesita:
   - `backend/anime-dataset-2023.csv`
   - `deprecated/anime.csv`
@@ -60,6 +61,7 @@ cd frontend && npm run lint
 ## Notas importantes del frontend
 
 - `frontend/components/anime-explorer.tsx` es un componente cliente.
+- `frontend/hooks/use-anime-explorer.ts` concentra la logica del explorador principal.
 - Para desarrollo local, las variables de entorno viven en `frontend/.env`.
 - `NEXT_PUBLIC_API_BASE_URL` debe ser accesible desde el navegador, no solo desde la red interna de Docker.
 - Si se cambia `NEXT_PUBLIC_API_BASE_URL` en una imagen ya construida del frontend, hay que reconstruirla porque es una variable publica de Next.js.

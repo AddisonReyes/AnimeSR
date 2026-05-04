@@ -2,6 +2,24 @@ import type { AnimeDetail, GenreOption, HealthResponse, RecommendationResponse, 
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
 
+type QueryParams = Record<string, string | number | undefined>;
+
+function buildApiPath(path: string, params?: QueryParams) {
+  if (!params) {
+    return path;
+  }
+
+  const searchParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined) {
+      searchParams.set(key, String(value));
+    }
+  }
+
+  const queryString = searchParams.toString();
+  return queryString ? `${path}?${queryString}` : path;
+}
+
 async function fetchJson<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     cache: "no-store",
@@ -16,7 +34,7 @@ async function fetchJson<T>(path: string): Promise<T> {
 }
 
 export async function getFeaturedGenres(limit = 18) {
-  return fetchJson<GenreOption[]>(`/api/genres?limit=${limit}`);
+  return fetchJson<GenreOption[]>(buildApiPath("/api/genres", { limit }));
 }
 
 export async function getHealth() {
@@ -24,8 +42,7 @@ export async function getHealth() {
 }
 
 export async function searchAnime(query: string, limit = 6) {
-  const params = new URLSearchParams({ q: query, limit: String(limit) });
-  return fetchJson<SearchResponse>(`/api/anime/search?${params.toString()}`);
+  return fetchJson<SearchResponse>(buildApiPath("/api/anime/search", { q: query, limit }));
 }
 
 export async function getAnimeDetail(animeId: number) {
@@ -33,15 +50,13 @@ export async function getAnimeDetail(animeId: number) {
 }
 
 export async function getHighlights(limit = 12) {
-  return fetchJson<RecommendationResponse>(`/api/recommendations/highlights?limit=${limit}`);
+  return fetchJson<RecommendationResponse>(buildApiPath("/api/recommendations/highlights", { limit }));
 }
 
 export async function getRecommendationsByTitle(title: string, limit = 12) {
-  const params = new URLSearchParams({ title, limit: String(limit) });
-  return fetchJson<RecommendationResponse>(`/api/recommendations/by-title?${params.toString()}`);
+  return fetchJson<RecommendationResponse>(buildApiPath("/api/recommendations/by-title", { title, limit }));
 }
 
 export async function getRecommendationsByGenre(genre: string, limit = 12) {
-  const params = new URLSearchParams({ genre, limit: String(limit) });
-  return fetchJson<RecommendationResponse>(`/api/recommendations/by-genre?${params.toString()}`);
+  return fetchJson<RecommendationResponse>(buildApiPath("/api/recommendations/by-genre", { genre, limit }));
 }
