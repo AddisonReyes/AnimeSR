@@ -37,6 +37,10 @@ El servicio depende de ambos archivos. Si cambia su ubicacion, tambien hay que a
 
 - `GET /`
   - Respuesta basica para comprobar que la API esta arriba.
+- `GET /docs`
+  - Swagger UI interactivo generado desde OpenAPI.
+- `GET /redoc`
+  - Documentacion alternativa en formato ReDoc.
 - `GET /api/health`
   - Devuelve `status`, `total_anime` y `total_safe_anime`.
 - `GET /api/genres?limit=18`
