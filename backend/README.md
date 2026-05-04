@@ -80,3 +80,19 @@ docker-compose up --build backend
 ```
 
 La imagen del backend se construye desde la raiz del repo porque necesita copiar tanto `backend/` como `deprecated/`.
+
+## Railway
+
+El `Dockerfile` del backend ya esta preparado para Railway:
+
+- Usa `PORT` automaticamente con fallback a `8000`.
+- Arranca con un script que hace `exec uvicorn ...` para manejar bien señales de apagado.
+- Corre como usuario no root dentro del contenedor.
+
+Importante para este monorepo:
+
+- El build context debe incluir la raiz del repositorio, porque la imagen copia:
+  - `backend/`
+  - `deprecated/`
+- Si Railway usa el repo completo, define la variable `RAILWAY_DOCKERFILE_PATH=backend/Dockerfile`.
+- Si intentas construir solo desde la carpeta `backend/`, el build fallara porque `deprecated/anime.csv` queda fuera del contexto.
