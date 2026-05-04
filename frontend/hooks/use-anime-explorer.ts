@@ -98,12 +98,14 @@ export function useAnimeExplorer() {
 
     if (!deferredQuery) {
       manualCommitRef.current = null;
-      setSuggestions([]);
-      setActiveSuggestionIndex(0);
-      setError(null);
-      if (!activeGenre && highlights) {
-        setRecommendations(highlights);
-      }
+      startTransition(() => {
+        setSuggestions([]);
+        setActiveSuggestionIndex(0);
+        setError(null);
+        if (!activeGenre && highlights) {
+          setRecommendations(highlights);
+        }
+      });
       return () => {
         cancelled = true;
       };
