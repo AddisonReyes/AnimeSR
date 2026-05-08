@@ -14,7 +14,7 @@ Anime System Recommendations is a full-stack anime discovery app built around co
 1. The backend loads `backend/anime-dataset-2023.csv` as the primary dataset.
 2. It enriches the catalog with tag data from `deprecated/anime.csv`.
 3. Adult titles are filtered out before public responses are returned.
-4. A TF-IDF feature matrix is built from title, synopsis, tags, studios, and source material.
+4. The backend lazily builds a TF-IDF feature matrix for title-based recommendations from title, synopsis, tags, studios, and source material.
 5. The API exposes search, detail, genre browsing, highlights, and recommendation endpoints.
 6. The frontend consumes the API in the browser and renders the experience with search suggestions, cards, a detail modal, and a styled footer.
 
@@ -67,6 +67,18 @@ Frontend:
   - Default: `http://127.0.0.1:8000`
   - Because this is a public Next.js variable, it must point to a URL reachable from the browser. Do not point it to an internal hostname such as `backend`.
   - Example file: `frontend/.env.example`
+
+Backend:
+
+- `ANIMESR_PRELOAD_TFIDF`
+  - Optional.
+  - Default: `0`
+  - Set to `1` to build the title recommendation engine during startup instead of waiting for the first title-based recommendation request.
+- `ANIMESR_TFIDF_IDLE_TTL_SECONDS`
+  - Optional.
+  - Default: `900`
+  - Number of idle seconds before the backend releases the in-memory title recommendation engine.
+  - Set to `0` to keep the engine loaded once it has been built.
 
 ## Run Locally
 
@@ -168,3 +180,9 @@ GitHub Actions:
 - `GET /api/recommendations/by-genre?genre=Shounen&limit=12`
 
 More detailed backend and frontend documentation lives in [backend/README.md](/home/dakotitah/github/Anime-System-Recomendations/backend/README.md) and [frontend/README.md](/home/dakotitah/github/Anime-System-Recomendations/frontend/README.md).
+
+## Runtime Cost Notes
+
+- Search, detail, featured genres, and highlights are available without preloading the title recommendation matrix.
+- The first `GET /api/recommendations/by-title` request after a cold start can be slower because the TF-IDF engine is built on demand.
+- After a period of inactivity, the backend can release that engine again to reduce steady-state Railway memory usage.

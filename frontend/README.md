@@ -37,6 +37,12 @@ The frontend is a `Next.js 14 + TypeScript` application that consumes the backen
 
 Because this variable is public and evaluated for browser-side requests, it must point to a URL reachable from the user's browser, not just from Docker networking.
 
+## Backend Runtime Note
+
+- The backend can lazily initialize title-based recommendations to reduce Railway memory usage.
+- Because of that, the first title recommendation request after a cold backend start can take a bit longer than later requests.
+- If you prefer startup latency over lower idle RAM, the backend supports `ANIMESR_PRELOAD_TFIDF=1`.
+
 ## Run Locally
 
 ```bash

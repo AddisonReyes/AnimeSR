@@ -29,6 +29,31 @@ def test_health_endpoint_returns_catalog_counts(catalog: AnimeCatalog) -> None:
     assert response.total_anime >= response.total_safe_anime > 0
 
 
+def test_title_recommendation_engine_loads_lazily() -> None:
+    catalog = AnimeCatalog()
+
+    assert not catalog.title_recommendation_engine_loaded
+
+    recommendation_by_genre(genre="Shonen", limit=6, catalog=catalog)
+    assert not catalog.title_recommendation_engine_loaded
+
+    recommendation_by_title(title="Naruto", limit=6, catalog=catalog)
+    assert catalog.title_recommendation_engine_loaded
+
+
+def test_title_recommendation_engine_releases_after_idle() -> None:
+    catalog = AnimeCatalog()
+    catalog.feature_engine_idle_ttl_seconds = 1
+
+    recommendation_by_title(title="Naruto", limit=6, catalog=catalog)
+    assert catalog.title_recommendation_engine_loaded
+
+    catalog._feature_engine_last_used_at -= 2
+    catalog.perform_maintenance()
+
+    assert not catalog.title_recommendation_engine_loaded
+
+
 def test_featured_genres_respects_limit(catalog: AnimeCatalog) -> None:
     response = featured_genres(limit=5, catalog=catalog)
 

@@ -48,9 +48,7 @@ class AnimeRecord:
     english_name: str | None
     other_name: str | None
     score: float | None
-    genres: list[str]
-    legacy_tags: list[str]
-    tags: list[str]
+    tags: tuple[str, ...]
     tag_set: frozenset[str]
     synopsis: str | None
     type: str | None
@@ -58,9 +56,9 @@ class AnimeRecord:
     aired: str | None
     premiered: str | None
     status: str | None
-    producers: list[str]
-    licensors: list[str]
-    studios: list[str]
+    producers: tuple[str, ...]
+    licensors: tuple[str, ...]
+    studios: tuple[str, ...]
     source: str | None
     duration: str | None
     rating_label: str | None
@@ -73,7 +71,6 @@ class AnimeRecord:
     is_adult: bool
     normalized_title: str
     normalized_search_text: str
-    feature_text: str
     catalog_score: float = 0.0
 
 
@@ -161,28 +158,18 @@ def build_anime_record(row: Mapping[str, str | None], legacy_tags: list[str]) ->
         return None
 
     genres = parse_list(row.get("Genres"))
-    tags = merge_tags(genres, legacy_tags)
+    tags = tuple(merge_tags(genres, legacy_tags))
     synopsis = clean_text(row.get("Synopsis"))
     english_name = clean_text(row.get("English name"))
     other_name = clean_text(row.get("Other name"))
-    producers = parse_list(row.get("Producers"))
-    licensors = parse_list(row.get("Licensors"))
-    studios = parse_list(row.get("Studios"))
+    producers = tuple(parse_list(row.get("Producers")))
+    licensors = tuple(parse_list(row.get("Licensors")))
+    studios = tuple(parse_list(row.get("Studios")))
     type_name = clean_text(row.get("Type"))
     source = clean_text(row.get("Source"))
     rating_label = clean_text(row.get("Rating"))
     normalized_title = normalize_text(title)
     search_bits = [title, english_name or "", other_name or "", " ".join(tags)]
-    feature_bits = [
-        title,
-        english_name or "",
-        other_name or "",
-        " ".join(tags),
-        type_name or "",
-        source or "",
-        " ".join(studios),
-        synopsis or "",
-    ]
 
     return AnimeRecord(
         anime_id=anime_id,
@@ -190,8 +177,6 @@ def build_anime_record(row: Mapping[str, str | None], legacy_tags: list[str]) ->
         english_name=english_name if english_name != title else None,
         other_name=other_name if other_name != title else None,
         score=parse_float(row.get("Score")),
-        genres=genres,
-        legacy_tags=legacy_tags,
         tags=tags,
         tag_set=frozenset(tags),
         synopsis=synopsis,
@@ -215,8 +200,21 @@ def build_anime_record(row: Mapping[str, str | None], legacy_tags: list[str]) ->
         is_adult=is_adult_record(tags, rating_label),
         normalized_title=normalized_title,
         normalized_search_text=normalize_text(" ".join(search_bits)),
-        feature_text=" ".join(feature_bits),
     )
+
+
+def compose_feature_text(record: AnimeRecord) -> str:
+    feature_bits = [
+        record.title,
+        record.english_name or "",
+        record.other_name or "",
+        " ".join(record.tags),
+        record.type or "",
+        record.source or "",
+        " ".join(record.studios),
+        record.synopsis or "",
+    ]
+    return " ".join(feature_bits)
 
 
 def to_summary(record: AnimeRecord) -> AnimeSummary:
@@ -228,7 +226,7 @@ def to_summary(record: AnimeRecord) -> AnimeSummary:
         score=record.score,
         episodes=record.episodes,
         type=record.type,
-        tags=record.tags,
+        tags=list(record.tags),
         short_synopsis=truncate_text(record.synopsis),
     )
 
@@ -243,15 +241,15 @@ def to_detail(record: AnimeRecord) -> AnimeDetail:
         score=record.score,
         episodes=record.episodes,
         type=record.type,
-        tags=record.tags,
+        tags=list(record.tags),
         short_synopsis=truncate_text(record.synopsis),
         synopsis=record.synopsis,
         aired=record.aired,
         premiered=record.premiered,
         status=record.status,
-        producers=record.producers,
-        licensors=record.licensors,
-        studios=record.studios,
+        producers=list(record.producers),
+        licensors=list(record.licensors),
+        studios=list(record.studios),
         source=record.source,
         duration=record.duration,
         rating_label=record.rating_label,

@@ -25,8 +25,8 @@ The service depends on both files. If their locations change, update the path re
 3. The service builds:
    - a title lookup
    - a genre lookup
-   - a TF-IDF matrix for content similarity
-4. Recommendation results are cached by title anchor and by genre for better performance.
+4. The TF-IDF engine for title-based recommendations is built lazily on the first uncached title recommendation request.
+5. Recommendation results are cached by title anchor and by genre for better performance.
 
 ## Internal Structure
 
@@ -41,7 +41,15 @@ The service depends on both files. If their locations change, update the path re
 
 ## Environment
 
-- No required runtime environment variables are needed for the API in its current form.
+- No required runtime environment variables are needed for the API.
+- Optional backend tuning variables:
+  - `ANIMESR_PRELOAD_TFIDF`
+    - Default: `0`
+    - Set to `1` to build the title recommendation engine during startup.
+  - `ANIMESR_TFIDF_IDLE_TTL_SECONDS`
+    - Default: `900`
+    - Number of idle seconds before the backend releases the title recommendation engine from memory.
+    - Set to `0` to keep the engine loaded once it has been built.
 - CORS is intentionally open so the API can be consumed publicly from any frontend.
 
 ## Endpoints
@@ -64,6 +72,7 @@ The service depends on both files. If their locations change, update the path re
   - Returns curated highlight recommendations from the catalog.
 - `GET /api/recommendations/by-title?title=Naruto&limit=12`
   - Returns content-based recommendations anchored to a title.
+  - The first cold request can be slower if the TF-IDF engine has not been built yet.
 - `GET /api/recommendations/by-genre?genre=Shounen&limit=12`
   - Returns recommendations from a genre or editorial tag.
 
@@ -118,6 +127,7 @@ The backend `Dockerfile` is now production-ready for Railway:
 - It reads `PORT` automatically with a fallback to `8000`.
 - It starts through [backend/start.sh](/home/dakotitah/github/Anime-System-Recomendations/backend/start.sh), which uses `exec uvicorn ...` for cleaner signal handling.
 - It runs as a non-root user inside the container.
+- It keeps baseline RAM lower by deferring the TF-IDF engine until title recommendations are needed, then releases it again after an idle window unless configured otherwise.
 
 Important for this monorepo:
 

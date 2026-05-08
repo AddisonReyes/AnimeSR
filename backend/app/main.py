@@ -123,6 +123,7 @@ def root() -> RootResponse:
     response_description="API health status and dataset counters.",
 )
 def health(catalog: AnimeCatalog = Depends(get_catalog)) -> HealthResponse:
+    catalog.perform_maintenance()
     return HealthResponse(
         status="ok",
         total_anime=len(catalog.records),

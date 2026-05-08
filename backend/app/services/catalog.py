@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import csv
+import gc
+import logging
 import math
-from collections import Counter, defaultdict
+import os
+from collections import Counter, OrderedDict, defaultdict
 from difflib import get_close_matches
 from pathlib import Path
-
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
+from threading import Lock
+from time import monotonic
 
 from app.schemas import AnimeDetail, AnimeSummary, GenreOption, RecommendationResponse
 from app.services.catalog_support import (
@@ -16,6 +18,7 @@ from app.services.catalog_support import (
     QUERY_ALIASES,
     AnimeRecord,
     build_anime_record,
+    compose_feature_text,
     normalize_text,
     parse_int,
     parse_list,
@@ -28,13 +31,18 @@ BACKEND_DIR = REPO_ROOT / "backend"
 DATASET_PATH = BACKEND_DIR / "anime-dataset-2023.csv"
 LEGACY_DATASET_PATH = REPO_ROOT / "deprecated" / "anime.csv"
 MAX_FEATURES = 14_000
-FEATURE_NGRAM_RANGE = (1, 2)
+FEATURE_NGRAM_RANGE = (1, 1)
 SEARCH_CANDIDATE_MULTIPLIER = 3
 FUZZY_MATCH_CUTOFF = 0.72
 HIGHLIGHT_CACHE_LIMIT = 24
 RECOMMENDATION_CACHE_LIMIT = 60
+RECOMMENDATION_CACHE_ENTRY_LIMIT = 256
+GENRE_CACHE_ENTRY_LIMIT = 64
 POPULARITY_CAP = 5_000
 SAME_TYPE_BONUS = 0.03
+DEFAULT_TFIDF_IDLE_TTL_SECONDS = 900
+
+logger = logging.getLogger(__name__)
 
 CATALOG_SCORE_WEIGHTS = {
     "quality": 0.45,
@@ -51,6 +59,23 @@ RECOMMENDATION_SCORE_WEIGHTS = {
 }
 
 
+def _read_bool_env(name: str, default: bool = False) -> bool:
+    raw_value = os.getenv(name)
+    if raw_value is None:
+        return default
+    return raw_value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _read_int_env(name: str, default: int) -> int:
+    raw_value = os.getenv(name)
+    if raw_value is None:
+        return default
+    try:
+        return int(raw_value)
+    except ValueError:
+        return default
+
+
 class AnimeCatalog:
     def __init__(
         self,
@@ -59,26 +84,34 @@ class AnimeCatalog:
     ) -> None:
         self.dataset_path = dataset_path
         self.legacy_dataset_path = legacy_dataset_path
-        self.legacy_tags_by_id = self._load_legacy_tags()
-        self.records = self._load_records()
+        legacy_tags_by_id = self._load_legacy_tags()
+        self.records = self._load_records(legacy_tags_by_id)
         self.records_by_id = {record.anime_id: record for record in self.records}
-        self.record_indices_by_id = {record.anime_id: index for index, record in enumerate(self.records)}
         self.safe_records = [record for record in self.records if not record.is_adult]
-        self.safe_titles = [record.normalized_title for record in self.safe_records]
         self.safe_title_lookup = self._build_title_lookup()
+        self.safe_titles = tuple(self.safe_title_lookup)
+        self.safe_record_indices_by_id = {
+            record.anime_id: index for index, record in enumerate(self.safe_records)
+        }
         self.genre_lookup = self._build_genre_lookup()
         self.genre_to_records = self._build_genre_to_records()
         self.featured_genres = self._build_featured_genres()
         self._assign_catalog_scores()
-        self.vectorizer = TfidfVectorizer(
-            stop_words="english",
-            max_features=MAX_FEATURES,
-            ngram_range=FEATURE_NGRAM_RANGE,
-        )
-        self.feature_matrix = self.vectorizer.fit_transform([record.feature_text for record in self.records])
-        self.recommendation_cache: dict[int, list[int]] = {}
-        self.genre_cache: dict[str, list[int]] = {}
+        self.recommendation_cache: OrderedDict[int, list[int]] = OrderedDict()
+        self.genre_cache: OrderedDict[str, list[int]] = OrderedDict()
         self.highlights = self._build_highlights(limit=HIGHLIGHT_CACHE_LIMIT)
+        self.preload_tfidf = _read_bool_env("ANIMESR_PRELOAD_TFIDF", default=False)
+        self.feature_engine_idle_ttl_seconds = _read_int_env(
+            "ANIMESR_TFIDF_IDLE_TTL_SECONDS",
+            DEFAULT_TFIDF_IDLE_TTL_SECONDS,
+        )
+        self._feature_engine_lock = Lock()
+        self._feature_engine_users = 0
+        self._feature_engine_last_used_at = 0.0
+        self._feature_matrix = None
+
+        if self.preload_tfidf:
+            self._ensure_feature_engine()
 
     def _load_legacy_tags(self) -> dict[int, list[str]]:
         legacy_tags: dict[int, list[str]] = {}
@@ -91,7 +124,7 @@ class AnimeCatalog:
                 legacy_tags[anime_id] = parse_list(row.get("genre"))
         return legacy_tags
 
-    def _load_records(self) -> list[AnimeRecord]:
+    def _load_records(self, legacy_tags_by_id: dict[int, list[str]]) -> list[AnimeRecord]:
         records: list[AnimeRecord] = []
         with self.dataset_path.open(encoding="utf-8", newline="") as csv_file:
             reader = csv.DictReader(csv_file)
@@ -99,11 +132,104 @@ class AnimeCatalog:
                 anime_id = parse_int(row.get("anime_id"))
                 if anime_id is None:
                     continue
-                legacy_tags = self.legacy_tags_by_id.get(anime_id, [])
+                legacy_tags = legacy_tags_by_id.get(anime_id, [])
                 record = build_anime_record(row, legacy_tags)
                 if record is not None:
                     records.append(record)
         return records
+
+    @property
+    def title_recommendation_engine_loaded(self) -> bool:
+        return self._feature_matrix is not None
+
+    def _build_feature_texts(self) -> list[str]:
+        return [compose_feature_text(record) for record in self.safe_records]
+
+    def _ensure_feature_engine(self) -> None:
+        if self._feature_matrix is not None:
+            return
+
+        with self._feature_engine_lock:
+            if self._feature_matrix is not None:
+                return
+
+            logger.info("Loading title recommendation engine for %s safe records.", len(self.safe_records))
+
+            import numpy as np
+            from sklearn.feature_extraction.text import TfidfVectorizer
+
+            vectorizer = TfidfVectorizer(
+                stop_words="english",
+                max_features=MAX_FEATURES,
+                ngram_range=FEATURE_NGRAM_RANGE,
+                dtype=np.float32,
+            )
+            self._feature_matrix = vectorizer.fit_transform(self._build_feature_texts())
+            self._feature_engine_last_used_at = monotonic()
+
+            del vectorizer
+            gc.collect()
+
+            logger.info("Title recommendation engine ready.")
+
+    def _acquire_feature_matrix(self):
+        while True:
+            self._ensure_feature_engine()
+            with self._feature_engine_lock:
+                if self._feature_matrix is None:
+                    continue
+                self._feature_engine_users += 1
+                self._feature_engine_last_used_at = monotonic()
+                return self._feature_matrix
+
+    def _release_feature_matrix(self) -> None:
+        with self._feature_engine_lock:
+            if self._feature_engine_users > 0:
+                self._feature_engine_users -= 1
+            self._feature_engine_last_used_at = monotonic()
+
+    def _maybe_release_feature_engine(self) -> None:
+        if self.feature_engine_idle_ttl_seconds <= 0:
+            return
+
+        with self._feature_engine_lock:
+            if self._feature_matrix is None or self._feature_engine_users:
+                return
+
+            idle_for = monotonic() - self._feature_engine_last_used_at
+            if idle_for < self.feature_engine_idle_ttl_seconds:
+                return
+
+            logger.info(
+                "Unloading title recommendation engine after %.0f seconds idle.",
+                idle_for,
+            )
+            self._feature_matrix = None
+
+        gc.collect()
+
+    def _get_cached_ids(self, cache: OrderedDict, key: object) -> list[int] | None:
+        cached_ids = cache.get(key)
+        if cached_ids is None:
+            return None
+        cache.move_to_end(key)
+        return cached_ids
+
+    def _set_cached_ids(
+        self,
+        cache: OrderedDict,
+        key: object,
+        value: list[int],
+        max_entries: int,
+    ) -> list[int]:
+        cache[key] = value
+        cache.move_to_end(key)
+        while len(cache) > max_entries:
+            cache.popitem(last=False)
+        return value
+
+    def perform_maintenance(self) -> None:
+        self._maybe_release_feature_engine()
 
     def _assign_catalog_scores(self) -> None:
         max_members = max((record.members or 0) for record in self.records) or 1
@@ -271,6 +397,7 @@ class AnimeCatalog:
         return [self._summary(self.records_by_id[anime_id]) for anime_id in anime_ids[:limit]]
 
     def search(self, query: str, limit: int = 8) -> list[AnimeSummary]:
+        self._maybe_release_feature_engine()
         normalized_query = normalize_text(query)
         if not normalized_query:
             return []
@@ -303,15 +430,18 @@ class AnimeCatalog:
         return self._summaries_from_records(results)
 
     def get_anime_detail(self, anime_id: int) -> AnimeDetail:
+        self._maybe_release_feature_engine()
         record = self.records_by_id.get(anime_id)
         if record is None or record.is_adult:
             raise LookupError(f"No safe anime found with id {anime_id}.")
         return self._detail(record)
 
     def get_featured_genres(self, limit: int = 18) -> list[GenreOption]:
+        self._maybe_release_feature_engine()
         return self.featured_genres[:limit]
 
     def get_highlights(self, limit: int = 12) -> RecommendationResponse:
+        self._maybe_release_feature_engine()
         return RecommendationResponse(
             source_type="highlights",
             source_label="Editor's picks from across the catalog",
@@ -329,27 +459,36 @@ class AnimeCatalog:
         )
 
     def _build_recommendation_ids(self, record: AnimeRecord) -> list[int]:
-        anchor_index = self.record_indices_by_id[record.anime_id]
-        similarities = cosine_similarity(self.feature_matrix[anchor_index], self.feature_matrix).ravel()
-        ranked: list[tuple[float, AnimeRecord]] = []
+        anchor_index = self.safe_record_indices_by_id[record.anime_id]
+        feature_matrix = self._acquire_feature_matrix()
+        try:
+            similarities = feature_matrix[anchor_index].dot(feature_matrix.T).toarray().ravel()
+            ranked: list[tuple[float, AnimeRecord]] = []
 
-        for index, similarity in enumerate(similarities):
-            candidate = self.records[index]
-            if candidate.anime_id == record.anime_id or candidate.is_adult:
-                continue
-            if self._is_same_franchise(record, candidate):
-                continue
-            ranked.append((self._score_recommendation_candidate(record, candidate, float(similarity)), candidate))
+            for index, similarity in enumerate(similarities):
+                candidate = self.safe_records[index]
+                if candidate.anime_id == record.anime_id:
+                    continue
+                if self._is_same_franchise(record, candidate):
+                    continue
+                ranked.append((self._score_recommendation_candidate(record, candidate, float(similarity)), candidate))
+        finally:
+            self._release_feature_matrix()
 
         ranked.sort(key=lambda item: item[0], reverse=True)
         diversified = self._diversify_records([candidate for _, candidate in ranked], limit=RECOMMENDATION_CACHE_LIMIT)
         return [candidate.anime_id for candidate in diversified]
 
     def _get_recommendation_ids(self, record: AnimeRecord) -> list[int]:
-        cached_ids = self.recommendation_cache.get(record.anime_id)
+        cached_ids = self._get_cached_ids(self.recommendation_cache, record.anime_id)
         if cached_ids is None:
             cached_ids = self._build_recommendation_ids(record)
-            self.recommendation_cache[record.anime_id] = cached_ids
+            cached_ids = self._set_cached_ids(
+                self.recommendation_cache,
+                record.anime_id,
+                cached_ids,
+                RECOMMENDATION_CACHE_ENTRY_LIMIT,
+            )
         return cached_ids
 
     def _build_genre_recommendation_ids(self, canonical_genre: str) -> list[int]:
@@ -368,16 +507,22 @@ class AnimeCatalog:
         return [record.anime_id for record in diversified]
 
     def _get_genre_recommendation_ids(self, canonical_genre: str) -> list[int]:
-        cached_ids = self.genre_cache.get(canonical_genre)
+        cached_ids = self._get_cached_ids(self.genre_cache, canonical_genre)
         if cached_ids is None:
             cached_ids = self._build_genre_recommendation_ids(canonical_genre)
-            self.genre_cache[canonical_genre] = cached_ids
+            cached_ids = self._set_cached_ids(
+                self.genre_cache,
+                canonical_genre,
+                cached_ids,
+                GENRE_CACHE_ENTRY_LIMIT,
+            )
         return cached_ids
 
     def _recommend_for_record(self, record: AnimeRecord, limit: int) -> list[AnimeSummary]:
         return self._summaries_from_ids(self._get_recommendation_ids(record), limit)
 
     def recommend_by_title(self, title: str, limit: int = 12) -> RecommendationResponse:
+        self._maybe_release_feature_engine()
         anchor = self._find_by_title(title)
         return RecommendationResponse(
             source_type="title",
@@ -387,6 +532,7 @@ class AnimeCatalog:
         )
 
     def recommend_by_genre(self, genre: str, limit: int = 12) -> RecommendationResponse:
+        self._maybe_release_feature_engine()
         canonical_genre = self._resolve_genre(genre)
         if canonical_genre is None:
             raise LookupError(f'No genre named "{genre}" was found in the dataset.')
